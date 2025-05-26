@@ -23,14 +23,14 @@ public class C_ECDSA {
         Security.addProvider(new BouncyCastleProvider());
     }
 
-    // 椭圆曲线参数
+    
     private static final X9ECParameters CURVE_PARAMS = CustomNamedCurves.getByName("secp256r1");
     private static final ECDomainParameters EC_PARAMS = new ECDomainParameters(
             CURVE_PARAMS.getCurve(), CURVE_PARAMS.getG(), CURVE_PARAMS.getN(), CURVE_PARAMS.getH());
     private static final BigInteger n = EC_PARAMS.getN();
     private static final ECPoint G = EC_PARAMS.getG();
 
-    //===================== ECDSA实现 =====================
+    
     static class ECDSAKeyPair {
         private BigInteger privateKey;
         private ECPoint publicKey;
@@ -94,7 +94,7 @@ public class C_ECDSA {
         return verifier.verifySignature(e.toByteArray(), signature.getR(), signature.getS());
     }
 
-    //===================== SM3-OTS实现 =====================
+    
     static class SM3OTS {
         private static final int HASH_CHAINS = 48;
         private static final int HASH_ITERATIONS = 255;
@@ -105,11 +105,11 @@ public class C_ECDSA {
             byte[][] pk = new byte[HASH_CHAINS][SM3_DIGEST_SIZE];
 
             void generateKeys(SecureRandom random) throws Exception {
-                // 生成私钥
+               
                 for (int i = 0; i < HASH_CHAINS; i++) {
                     random.nextBytes(sk[i]);
                 }
-                // 生成公钥（私钥哈希255次）
+               
                 for (int i = 0; i < HASH_CHAINS; i++) {
                     byte[] current = sk[i].clone();
                     for (int j = 0; j < HASH_ITERATIONS; j++) {
@@ -127,13 +127,11 @@ public class C_ECDSA {
                 SM3OTSSignature sig = new SM3OTSSignature();
                 byte[] digest = sm3Hash(message);
 
-                // 处理前32条链（二进制索引）
                 for (int i = 0; i < 32; i++) {
                     int step = Byte.toUnsignedInt(digest[i]);
                     sig.sigBlocks[i] = hashChain(keyPair.sk[i], step);
                 }
 
-                // 处理后16条链（十六进制位置索引）
                 String hexDigest = Hex.toHexString(digest);
                 for (int i = 0; i < 16; i++) {
                     char targetChar = "0123456789ABCDEF".charAt(i);
@@ -155,16 +153,13 @@ public class C_ECDSA {
                 byte[][] sigBlocks = unflatten(signature);
                 byte[] digest = sm3Hash(message);
 
-                // 重构公钥
                 byte[][] reconstructedPk = new byte[HASH_CHAINS][];
 
-                // 验证前32条链
                 for (int i = 0; i < 32; i++) {
                     int step = Byte.toUnsignedInt(digest[i]);
                     reconstructedPk[i] = hashChain(sigBlocks[i], HASH_ITERATIONS - step);
                 }
 
-                // 验证后16条链
                 String hexDigest = Hex.toHexString(digest);
                 for (int i = 0; i < 16; i++) {
                     char targetChar = "0123456789ABCDEF".charAt(i);
@@ -214,43 +209,19 @@ public class C_ECDSA {
     }
 
     public static void main(String[] args) throws Exception {
-        //===================== ECDSA流程 =====================
+
         String message = "Hello C-ECDSA!";
-        double stime11 = System.currentTimeMillis();
         ECDSAKeyPair ecdsaKeyPair = new ECDSAKeyPair();
         ecdsaKeyPair.generateKeyPair();
-        double etime11 = System.currentTimeMillis();
-
-        double stime12 = System.currentTimeMillis();
         ECDSASignature ecdsaSignature = sign(message, ecdsaKeyPair);
-        double etime12 = System.currentTimeMillis();
-
-        double stime13 = System.currentTimeMillis();
         boolean ecdsaValid = verify(ecdsaKeyPair.getPublicKey(), message, ecdsaSignature);
-        double etime13 = System.currentTimeMillis();
-        System.out.println("ECDSA签名验证结果: " + ecdsaValid);
-        
-        //===================== SM3-OTS流程 =====================
-        double stime21 = System.currentTimeMillis();
         SecureRandom secureRandom = new SecureRandom();
         SM3OTS.KeyPair sm3otsKeyPair = new SM3OTS.KeyPair();
         sm3otsKeyPair.generateKeys(secureRandom);
-        double etime21 = System.currentTimeMillis();
-        System.out.println("KeyGen运行时间为："+(etime11-stime11+etime21-stime21)+"毫秒");
-        double stime22 = System.currentTimeMillis();
-        byte[] sm3otsSignature = SM3OTS.SM3OTSSignature.sign(message.getBytes(), sm3otsKeyPair);
-        double etime22 = System.currentTimeMillis();
-        System.out.println("Sign运行时间为："+(etime12-stime12+etime22-stime22)+"毫秒");
-        double stime23 = System.currentTimeMillis();
         boolean sm3otsValid = SM3OTS.SM3OTSSignature.verify(message.getBytes(), sm3otsSignature, sm3otsKeyPair);
-        double etime23 = System.currentTimeMillis();
-        System.out.println("SM3-OTS签名验证结果: " + sm3otsValid);
-        System.out.println("Sign运行时间为："+(etime13-stime13+etime23-stime23)+"毫秒");
-
-
+        System.out.println(sm3otsValid);
     }
 
-    //===================== 工具方法 =====================
     private static BigInteger hashMessage(String message) throws Exception {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[] hash = md.digest(message.getBytes());
